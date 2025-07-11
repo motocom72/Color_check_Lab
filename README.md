@@ -1,2 +1,130 @@
-# Color_check_Lab
-labでの色判定
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Lab色判定アプリ（パスワード付き）</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; background: #f0f0f0; }
+    #app { display: none; margin-top: 20px; }
+    #video { width: 90%; max-width: 400px; border-radius: 8px; }
+    #colorBox { width: 50px; height: 50px; margin: 10px auto; border: 1px solid #000; }
+  </style>
+</head>
+<body>
+  <div id="login">
+    <h2>ログイン</h2>
+    <input type="password" id="password" placeholder="パスワードを入力">
+    <button onclick="checkPassword()">ログイン</button>
+    <p id="error" style="color:red;"></p>
+  </div>
+
+  <div id="app">
+    <h2>Lab色判定アプリ</h2>
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <div id="colorBox"></div>
+    <p id="rgbValue"></p>
+    <p id="labValue"></p>
+    <p id="judgment"></p>
+  </div>
+
+  <script>
+    const correctPassword = "1234";
+
+    function checkPassword() {
+      const input = document.getElementById("password").value;
+      if (input === correctPassword) {
+        document.getElementById("login").style.display = "none";
+        document.getElementById("app").style.display = "block";
+        startCamera();
+      } else {
+        document.getElementById("error").textContent = "パスワードが違います。";
+      }
+    }
+
+    async function startCamera() {
+      const video = document.getElementById('video');
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+      video.srcObject = stream;
+
+      const canvas = document.getElementById('canvas');
+      const context = canvas.getContext('2d');
+
+      video.addEventListener('loadedmetadata', () => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        setInterval(() => {
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          const size = 20;
+          const x = canvas.width / 2 - size / 2;
+          const y = canvas.height / 2 - size / 2;
+          const imageData = context.getImageData(x, y, size, size);
+          const data = imageData.data;
+
+          let r = 0, g = 0, b = 0;
+          for (let i = 0; i < data.length; i += 4) {
+            r += data[i];
+            g += data[i + 1];
+            b += data[i + 2];
+          }
+          const count = data.length / 4;
+          r = Math.round(r / count);
+          g = Math.round(g / count);
+          b = Math.round(b / count);
+
+          document.getElementById("rgbValue").textContent = `RGB: (${r}, ${g}, ${b})`;
+          document.getElementById("colorBox").style.backgroundColor = `rgb(${r},${g},${b})`;
+
+          // RGB → Lab変換
+          function rgbToLab(r, g, b) {
+            // 1. RGB to XYZ
+            function pivotRGB(n) {
+              n /= 255;
+              return (n > 0.04045) ? Math.pow((n + 0.055) / 1.055, 2.4) : n / 12.92;
+            }
+            let R = pivotRGB(r), G = pivotRGB(g), B = pivotRGB(b);
+            let X = R * 0.4124 + G * 0.3576 + B * 0.1805;
+            let Y = R * 0.2126 + G * 0.7152 + B * 0.0722;
+            let Z = R * 0.0193 + G * 0.1192 + B * 0.9505;
+
+            // 2. XYZ to Lab
+            function pivotXYZ(n) {
+              return (n > 0.008856) ? Math.pow(n, 1/3) : (7.787 * n) + (16 / 116);
+            }
+            X /= 0.95047;
+            Y /= 1.00000;
+            Z /= 1.08883;
+
+            let fx = pivotXYZ(X);
+            let fy = pivotXYZ(Y);
+            let fz = pivotXYZ(Z);
+
+            let L = (116 * fy) - 16;
+            let a = 500 * (fx - fy);
+            let b = 200 * (fy - fz);
+
+            return { L: Math.round(L), a: Math.round(a), b: Math.round(b) };
+          }
+
+          const lab = rgbToLab(r, g, b);
+          document.getElementById("labValue").textContent = `Lab: (L*: ${lab.L}, a*: ${lab.a}, b*: ${lab.b})`;
+
+          // 判定
+          let result = "";
+          if (lab.L < 50) {
+            result = "濃い";
+          } else if (lab.L > 60) {
+            result = "薄い";
+          } else {
+            result = "正常";
+          }
+
+          document.getElementById("judgment").textContent = `判定: ${result}`;
+        }, 1000);
+      });
+    }
+  </script>
+</body>
+</html>
