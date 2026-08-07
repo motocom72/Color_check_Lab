@@ -255,7 +255,7 @@
       const targetRawRGB = getAverageRGB(ctx, targetROI);
 
       // 基準グレーの理想値
-      const grayTarget = [128, 128, 128];
+      const grayTarget = [158, 163, 165];
 
       // チャンネル別補正
       const correctedRGB = applyGrayCorrection(targetRawRGB, grayRGB, grayTarget);
